@@ -11,89 +11,120 @@ import { Label } from "@/components/ui/label";
 import toast from "react-hot-toast";
 import { User, Loader2, CheckIcon, XIcon } from "lucide-react";
 import { useAccount } from "@starknet-react/core";
+import { PROOFOFHABIT_ABI } from "../abis/proof_of_habit_abi";
+import {
+  useContractFetch,
+  useContractWriteUtility,
+} from "@/hooks/useBlockchain";
+import { shortString } from "starknet";
 
 export default function SetUsernamePage() {
   const { address } = useAccount();
   //   TODO: Fetch username form contract
-  const [username, setUsername] = useState("Oshioke");
+  const {
+    readData: usernameData,
+    dataRefetch: refetchUsername,
+    readIsLoading: usernameIsLoading,
+  } = useContractFetch(PROOFOFHABIT_ABI, "get_user_name", [address]);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [inputUsername, setInputUsername] = useState("");
   const [isChecking, setIsChecking] = useState(false);
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
+  const {
+    writeAsync: handleSetUserName,
+    writeIsPending,
+    waitIsLoading,
+    waitStatus,
+  } = useContractWriteUtility(
+    "set_user_name",
+    [shortString.encodeShortString(inputUsername)],
+    PROOFOFHABIT_ABI
+  );
 
-  if (!address) {
+  if (!address || waitStatus === "success") {
     router.push("/");
     return null;
   }
 
-  if (username) {
-    router.push(`/profile/${username}`);
+  if (usernameData) {
+    router.push(`/profile/${shortString.decodeShortString(usernameData)}`);
     return null;
   }
 
-  const checkUsernameAvailability = async (username: string) => {
-    if (username.length < 3) {
-      setIsAvailable(null);
-      return;
-    }
-
-    setIsChecking(true);
-
-    // Simulate API call to check username availability
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // Mock availability check (some usernames are "taken")
-    const takenUsernames = ["admin", "test", "user", "alice", "bob"];
-    const available = !takenUsernames.includes(username.toLowerCase());
-
-    setIsAvailable(available);
-    setIsChecking(false);
-  };
-
   const handleUsernameChange = (value: string) => {
-    // Only allow alphanumeric characters and underscores
-    const sanitized = value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase();
-    setInputUsername(sanitized);
+    // Allow only letters, numbers, and underscores
+    const validPattern = /^[a-zA-Z0-9_]*$/;
 
-    if (sanitized !== value) {
+    if (!validPattern.test(value)) {
       toast.error(
         "Username can only contain letters, numbers, and underscores"
       );
+      return;
     }
 
-    checkUsernameAvailability(sanitized);
+    // Convert to lowercase and update state
+    setInputUsername(value.toLowerCase());
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!inputUsername.trim() || inputUsername.length < 3) {
-      toast.error("Username must be at least 3 characters long");
-      return;
-    }
-
-    if (!isAvailable) {
-      toast("Please choose an available username");
+    if (
+      !inputUsername.trim() ||
+      inputUsername.length < 3 ||
+      inputUsername.length > 20
+    ) {
+      toast.error("Username must be between 3 - 20 characters long");
       return;
     }
 
     setLoading(true);
 
     try {
-      // Simulate onchain transaction to set username
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      handleSetUserName();
 
-      setUsername(inputUsername);
+      if (waitStatus === "success") {
+        toast.success("Success! 🎉 Your username has been set");
 
-      toast.success("Success! 🎉 Your username has been set");
-
-      router.push(`/profile/${inputUsername}`);
+        router.push(`/profile/${inputUsername}`);
+      }
     } catch (error) {
       toast.error("Failed to set username. Please try again.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const buttonContent = () => {
+    if (writeIsPending) {
+      return (
+        <>
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          Send...
+        </>
+      );
+    }
+
+    if (waitIsLoading) {
+      return (
+        <>
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          Waiting for confirmation...
+        </>
+      );
+    }
+
+    if (waitStatus === "error") {
+      return (
+        <>
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          Transaction Rejected...
+        </>
+      );
+    }
+
+    return "Set Username";
   };
 
   return (
@@ -172,17 +203,14 @@ export default function SetUsernamePage() {
 
               <Button
                 type="submit"
-                disabled={loading || !isAvailable || inputUsername.length < 3}
+                disabled={
+                  loading ||
+                  inputUsername.length < 3 ||
+                  inputUsername.length > 20
+                }
                 className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-3"
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Setting Username...
-                  </>
-                ) : (
-                  "Set Username"
-                )}
+                {buttonContent()}
               </Button>
 
               <p className="text-xs text-gray-500 text-center">

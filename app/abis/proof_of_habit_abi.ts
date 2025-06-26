@@ -29,15 +29,15 @@ export const PROOFOFHABIT_ABI: Abi = [
     name: "proof_of_habit::base::types::Habit",
     members: [
       {
+        name: "id",
+        type: "core::integer::u32",
+      },
+      {
         name: "owner",
         type: "core::starknet::contract_address::ContractAddress",
       },
       {
-        name: "title",
-        type: "core::byte_array::ByteArray",
-      },
-      {
-        name: "description",
+        name: "info",
         type: "core::byte_array::ByteArray",
       },
       {
@@ -63,16 +63,16 @@ export const PROOFOFHABIT_ABI: Abi = [
     name: "proof_of_habit::base::types::Entry",
     members: [
       {
-        name: "message",
+        name: "id",
+        type: "core::integer::u32",
+      },
+      {
+        name: "log_info",
         type: "core::byte_array::ByteArray",
       },
       {
         name: "timestamp",
         type: "core::integer::u64",
-      },
-      {
-        name: "picture_uri",
-        type: "core::byte_array::ByteArray",
       },
     ],
   },
@@ -97,11 +97,7 @@ export const PROOFOFHABIT_ABI: Abi = [
         name: "create_habit",
         inputs: [
           {
-            name: "title",
-            type: "core::byte_array::ByteArray",
-          },
-          {
-            name: "description",
+            name: "infoUid",
             type: "core::byte_array::ByteArray",
           },
         ],
@@ -121,11 +117,7 @@ export const PROOFOFHABIT_ABI: Abi = [
             type: "core::integer::u32",
           },
           {
-            name: "message",
-            type: "core::byte_array::ByteArray",
-          },
-          {
-            name: "picture_uri",
+            name: "log_info",
             type: "core::byte_array::ByteArray",
           },
         ],
@@ -345,11 +337,6 @@ export const PROOFOFHABIT_ABI: Abi = [
         type: "core::integer::u32",
         kind: "data",
       },
-      {
-        name: "title",
-        type: "core::byte_array::ByteArray",
-        kind: "data",
-      },
     ],
   },
   {
@@ -368,12 +355,7 @@ export const PROOFOFHABIT_ABI: Abi = [
         kind: "data",
       },
       {
-        name: "message",
-        type: "core::byte_array::ByteArray",
-        kind: "data",
-      },
-      {
-        name: "picture_uri",
+        name: "log_info",
         type: "core::byte_array::ByteArray",
         kind: "data",
       },

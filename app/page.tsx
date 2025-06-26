@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useContractFetch } from "@/hooks/useBlockchain";
 import { PROOFOFHABIT_ABI } from "./abis/proof_of_habit_abi";
 import { da } from "date-fns/locale";
+import { shortString } from "starknet";
 
 // Helper: return an emoji that matches a habit title
 function getHabitEmoji(title: string) {
@@ -37,12 +38,13 @@ export default function HomePage() {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const { readData, dataRefetch, readIsLoading } = useContractFetch(
     PROOFOFHABIT_ABI,
-    "get_user_habits",
+    "get_user_name",
     ["0x07af08dad44af4f7461979294f7eff8d3617c27c7c3e3f8222fd2a871517e719"]
   );
 
   useEffect(() => {
-    console.log(readData, "read data");
+    if (!readData) return;
+    console.log(shortString.decodeShortString(readData), "read data");
     console.log(readIsLoading, "loading read data");
     dataRefetch();
   }, [readData, readIsLoading]);
@@ -70,12 +72,12 @@ export default function HomePage() {
   // }
 
   const handleStartHabit = () => {
-    dataRefetch();
-    // if (address) {
-    //   router.push("/create");
-    // } else {
-    //   setShowWalletModal(true);
-    // }
+    // dataRefetch();
+    if (address) {
+      router.push("/create");
+    } else {
+      setShowWalletModal(true);
+    }
   };
 
   return (

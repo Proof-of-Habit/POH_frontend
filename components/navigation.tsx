@@ -14,13 +14,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAccount, useDisconnect } from "@starknet-react/core";
+import { useContractFetch } from "@/hooks/useBlockchain";
+import { PROOFOFHABIT_ABI } from "@/app/abis/proof_of_habit_abi";
+import { shortString } from "starknet";
 
 export function Navigation() {
   const pathname = usePathname();
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
-  //   TODO: Fetch username form contract
-  const [username, setUsername] = useState("Oshioke");
+  const { readData: usernameData } = useContractFetch(
+    PROOFOFHABIT_ABI,
+    "get_user_name",
+    [address]
+  );
   const [showWalletModal, setShowWalletModal] = useState(false);
 
   const navItems = [
@@ -88,7 +94,8 @@ export function Navigation() {
                       className="bg-white text-purple-600 border-purple-200 hover:bg-purple-50"
                     >
                       <User className="w-4 h-4 mr-2" />
-                      {username ||
+                      {(usernameData &&
+                        shortString.decodeShortString(usernameData)) ||
                         `${address?.slice(0, 6)}...${address?.slice(-4)}`}
                       <ChevronDown className="w-4 h-4 ml-2" />
                     </Button>
@@ -97,12 +104,16 @@ export function Navigation() {
                     <DropdownMenuItem asChild>
                       <Link
                         href={
-                          username ? `/profile/${username}` : "/set-username"
+                          usernameData
+                            ? `/profile/${shortString.decodeShortString(
+                                usernameData
+                              )}`
+                            : "/set-username"
                         }
                         className="w-full"
                       >
                         <User className="w-4 h-4 mr-2" />
-                        {username ? "View Profile" : "Set Username"}
+                        {usernameData ? "View Profile" : "Set Username"}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />

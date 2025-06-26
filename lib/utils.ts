@@ -4,3 +4,22 @@ import { twMerge } from "tailwind-merge";
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+export const BEARER_TOKEN =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJjOWU2MDAxNy00YTgwLTQ4ZWEtYmY3MS1kYTZlMDM0NjBjMTIiLCJlbWFpbCI6InNhbGFraTE5MDJAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsInBpbl9wb2xpY3kiOnsicmVnaW9ucyI6W3siZGVzaXJlZFJlcGxpY2F0aW9uQ291bnQiOjEsImlkIjoiRlJBMSJ9LHsiZGVzaXJlZFJlcGxpY2F0aW9uQ291bnQiOjEsImlkIjoiTllDMSJ9XSwidmVyc2lvbiI6MX0sIm1mYV9lbmFibGVkIjpmYWxzZSwic3RhdHVzIjoiQUNUSVZFIn0sImF1dGhlbnRpY2F0aW9uVHlwZSI6InNjb3BlZEtleSIsInNjb3BlZEtleUtleSI6ImUwNmM4ZWI4YWUzODY2YzkzZmYzIiwic2NvcGVkS2V5U2VjcmV0IjoiZGQ1ODBiOWZiM2Q5NWUzZmZjZjdlZjRkNzVjNTQ3OWRmNTJkNGYzYTQ2Y2UzOGRkOTEwOTMwNmVjYTgzZGU0MCIsImV4cCI6MTc4MjQxNzk3Mn0.x4lA02I2Dg-CR9uoKePujPjkPj5PY233c3eN1MB9-cg";
+
+export function canLogTodayFromEpoch(
+  epochSeconds: number | bigint | null | undefined
+): boolean {
+  if (!epochSeconds) return true;
+
+  const lastLogDate = new Date(Number(epochSeconds) * 1000);
+  const now = new Date();
+
+  const isDifferentDay =
+    now.getFullYear() !== lastLogDate.getFullYear() ||
+    now.getMonth() !== lastLogDate.getMonth() ||
+    now.getDate() !== lastLogDate.getDate();
+
+  return isDifferentDay;
+}

@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Flame, Target, Calendar, ExternalLink } from "lucide-react";
+import { useContractFetch } from "@/hooks/useBlockchain";
+import { PROOFOFHABIT_ABI } from "@/app/abis/proof_of_habit_abi";
+import { useAccount } from "@starknet-react/core";
 
 interface UserHabit {
   id: number;
@@ -27,65 +30,34 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
+  const { address } = useAccount();
   const params = useParams();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
 
+  const router = useRouter();
+
+  // 👇 Redirect if wallet is not connected
   useEffect(() => {
-    // Mock profile data
-    const mockProfile: UserProfile = {
-      username: params.username as string,
-      walletAddress: "0x1234...5678",
-      joinDate: "2024-01-01",
-      totalHabits: 5,
-      totalLogs: 127,
-      longestStreak: 42,
-      habits: [
-        {
-          id: 1,
-          title: "Morning Workout",
-          streak: 15,
-          totalLogs: 23,
-          isPublic: true,
-        },
-        {
-          id: 2,
-          title: "Daily Reading",
-          streak: 8,
-          totalLogs: 12,
-          isPublic: true,
-        },
-        {
-          id: 3,
-          title: "Meditation",
-          streak: 3,
-          totalLogs: 5,
-          isPublic: false,
-        },
-        {
-          id: 4,
-          title: "Journaling",
-          streak: 42,
-          totalLogs: 67,
-          isPublic: true,
-        },
-        {
-          id: 5,
-          title: "Language Learning",
-          streak: 12,
-          totalLogs: 20,
-          isPublic: true,
-        },
-      ],
-    };
+    if (!address) {
+      router.push("/");
+    }
+  }, [address, router]);
 
-    setTimeout(() => {
-      setProfile(mockProfile);
-      setLoading(false);
-    }, 1000);
-  }, [params.username]);
+  const { readData: totalHabits, readIsLoading: isLoadingTotalHabits } =
+    useContractFetch(PROOFOFHABIT_ABI, "get_total_user_habits", [address]);
 
-  if (loading) {
+  const { readData: totalUserLogs, readIsLoading: isLoadingTotalUserLogs } =
+    useContractFetch(PROOFOFHABIT_ABI, "get_total_logs_user", [address]);
+
+  const {
+    readData: userLongestStreak,
+    readIsLoading: isLoadingUserLongestStreak,
+  } = useContractFetch(PROOFOFHABIT_ABI, "get_user_longest_streak", [address]);
+
+  if (
+    isLoadingTotalHabits ||
+    isLoadingTotalUserLogs ||
+    isLoadingUserLongestStreak
+  ) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
@@ -93,22 +65,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (!profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">
-            Profile not found
-          </h1>
-          <p className="text-gray-600">
-            The user profile you're looking for doesn't exist.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const publicHabits = profile.habits.filter((habit) => habit.isPublic);
+  // const publicHabits = profile.habits.filter((habit) => habit.isPublic);
 
   return (
     <div className="min-h-screen py-8 px-4">
@@ -118,21 +75,13 @@ export default function ProfilePage() {
           <CardHeader>
             <div className="flex items-center space-x-4">
               <div className="w-16 h-16 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                {profile.username[0].toUpperCase()}
+                O
               </div>
               <div className="flex-1">
                 <h1 className="text-2xl font-bold text-gray-800 mb-1">
-                  @{profile.username}
+                  @{params.username}
                 </h1>
-                <p className="text-gray-600 text-sm mb-2">
-                  {profile.walletAddress}
-                </p>
-                <div className="flex items-center space-x-1 text-sm text-gray-500">
-                  <Calendar className="w-4 h-4" />
-                  <span>
-                    Joined {new Date(profile.joinDate).toLocaleDateString()}
-                  </span>
-                </div>
+                <p className="text-gray-600 text-sm mb-2">{address}</p>
               </div>
             </div>
           </CardHeader>
@@ -143,7 +92,7 @@ export default function ProfilePage() {
           <Card className="bg-white/80 backdrop-blur-sm border-purple-100 text-center">
             <CardContent className="pt-6">
               <div className="text-3xl font-bold text-purple-600 mb-2">
-                {profile.totalHabits}
+                {Number(totalHabits)}
               </div>
               <p className="text-gray-600">Total Habits</p>
             </CardContent>
@@ -151,7 +100,7 @@ export default function ProfilePage() {
           <Card className="bg-white/80 backdrop-blur-sm border-purple-100 text-center">
             <CardContent className="pt-6">
               <div className="text-3xl font-bold text-green-600 mb-2">
-                {profile.totalLogs}
+                {Number(totalUserLogs)}
               </div>
               <p className="text-gray-600">Total Logs</p>
             </CardContent>
@@ -161,7 +110,7 @@ export default function ProfilePage() {
               <div className="flex items-center justify-center space-x-1 mb-2">
                 <Flame className="w-6 h-6 text-orange-500" />
                 <span className="text-3xl font-bold text-orange-600">
-                  {profile.longestStreak}
+                  {Number(userLongestStreak)}
                 </span>
               </div>
               <p className="text-gray-600">Longest Streak</p>
@@ -169,7 +118,7 @@ export default function ProfilePage() {
           </Card>
         </div>
 
-        {/* Public Habits */}
+        {/* Public Habits
         <Card className="bg-white/80 backdrop-blur-sm border-purple-100">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -222,7 +171,7 @@ export default function ProfilePage() {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </div>
   );

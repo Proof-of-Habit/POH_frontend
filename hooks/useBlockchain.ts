@@ -6,9 +6,9 @@ import {
   useTransactionReceipt,
 } from "@starknet-react/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Abi, RpcProvider } from "starknet";
+import { Abi, Contract, RpcProvider } from "starknet";
 const POH_CONTRACT_ADDRESS =
-  "0x02f43a8fe0f7fa8f4593ad534c47fb1e1b2875f4c7959149e265acee1e388626";
+  "0x05881b8442776322c1501d50825f4b539795275a7aa20fb33acdd5f0f9dd00a9";
 
 // Utility function to perform contract read operations
 export function useContractFetch(
@@ -22,22 +22,30 @@ export function useContractFetch(
     isError: readIsError,
     isLoading: readIsLoading,
     error: readError,
+    isFetching: readRefetching,
   } = useReadContract({
     abi: abi,
     functionName: functionName,
     address: POH_CONTRACT_ADDRESS,
     args: args,
-    refetchInterval: 1000,
+    refetchInterval: 600000,
   });
 
-  return { readData, dataRefetch, readIsError, readIsLoading, readError };
+  return {
+    readData,
+    dataRefetch,
+    readIsError,
+    readIsLoading,
+    readError,
+    readRefetching,
+  };
 }
 
 // Utility function to perform contract write operations
 export function useContractWriteUtility(
   functionName: string,
   args: any[],
-  abi: any
+  abi: Abi
 ) {
   const { contract } = useContract({ abi, address: POH_CONTRACT_ADDRESS });
 
@@ -45,13 +53,17 @@ export function useContractWriteUtility(
     if (
       !contract ||
       !args ||
-      args.some((arg) => arg === undefined || arg === null)
+      args.some(
+        (arg) => arg === undefined || arg === null || arg === "0x" || arg === ""
+      )
     ) {
       return undefined;
     }
 
     return [contract.populate(functionName, args)];
   }, [contract, functionName, args]);
+
+  console.log(calls, "this is the call");
 
   const {
     send: writeAsync,
@@ -149,3 +161,45 @@ export function useContractEvents(
     total: events.length,
   };
 }
+
+export async function readContractFunctionWithStarknetJs(
+  functionName: string,
+  args: any[] = []
+): Promise<any> {
+  const provider = new RpcProvider({
+    nodeUrl: process.env.NEXT_PUBLIC_RPC_URL,
+  });
+
+  // Get the contract ABI from the chain
+  const { abi } = await provider.getClassAt(POH_CONTRACT_ADDRESS);
+  if (!abi) {
+    throw new Error("No ABI found for the contract.");
+  }
+
+  // Instantiate contract
+  const contract = new Contract(abi, POH_CONTRACT_ADDRESS, provider);
+
+  // Dynamically call the function
+  if (typeof contract[functionName] !== "function") {
+    throw new Error(
+      `Function '${functionName}' does not exist on the contract.`
+    );
+  }
+
+  const result = await contract[functionName](...args);
+  return result;
+}
+
+export const fetchContentFromIPFS = async (cid: string) => {
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_PINATA_GATEWAY_URL}${cid}?pinataGatewayToken=${process.env.NEXT_PUBLIC_PINATA_GATEWAY_TOKEN}`
+    );
+    const data = await response.json();
+
+    return { ...data, cid: cid };
+  } catch (error) {
+    console.error(`Error fetching data for CID ${cid}:`, error);
+    return null;
+  }
+};

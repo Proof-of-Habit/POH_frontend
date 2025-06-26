@@ -12,16 +12,26 @@ import { Label } from "@/components/ui/label";
 import toast from "react-hot-toast";
 import { Upload, Loader2, Target } from "lucide-react";
 import { useAccount } from "@starknet-react/core";
+import { BEARER_TOKEN } from "@/lib/utils";
+import { PROOFOFHABIT_ABI } from "../abis/proof_of_habit_abi";
+import { useContractWriteUtility } from "@/hooks/useBlockchain";
 
 export default function CreateHabitPage() {
   const { address } = useAccount();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [infoUri, setInfoUri] = useState("");
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     picture: null as File | null,
   });
+  const {
+    writeAsync: handleCreateHabit,
+    writeIsPending,
+    waitIsLoading,
+    waitStatus,
+  } = useContractWriteUtility("create_habit", [infoUri], PROOFOFHABIT_ABI);
 
   if (!address) {
     router.push("/");
@@ -43,28 +53,104 @@ export default function CreateHabitPage() {
       return;
     }
 
-    setLoading(true);
-
     try {
-      // Simulate image upload to IPFS/Cloudinary
-      let pictureUri = "";
-      if (formData.picture) {
-        // Mock upload delay
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        pictureUri = `https://example.com/images/${Date.now()}.jpg`;
+      setLoading(true);
+
+      if (!formData.picture) {
+        alert("No Image selected");
+        return;
       }
+      const ImageData = new FormData();
+      ImageData.append("file", formData.picture);
 
-      // Simulate onchain transaction
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const image_upload_res = await fetch(
+        "https://api.pinata.cloud/pinning/pinFileToIPFS",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${BEARER_TOKEN}`,
+          },
+          body: ImageData,
+        }
+      );
 
-      toast.success("Success! 🎉 Your habit has been created.");
+      const image_upload_resData = await image_upload_res.json();
 
-      router.push("/my-habits");
+      console.log(image_upload_res, "finished uploading image");
+
+      console.log("started uploading URI");
+      let habit_metadata = JSON.stringify({
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        image: `ipfs://${image_upload_resData.IpfsHash}/`,
+        title: formData.title,
+        description: formData.description,
+        created_at: new Date(),
+      });
+
+      const metadata_upload_res = await fetch(
+        "https://api.pinata.cloud/pinning/pinJSONToIPFS",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${BEARER_TOKEN}`,
+          },
+          body: habit_metadata,
+        }
+      );
+
+      const metadata_upload_resData = await metadata_upload_res.json();
+      setInfoUri(metadata_upload_resData.IpfsHash);
+
+      console.log(metadata_upload_resData, "finished uploading metadata");
+
+      handleCreateHabit();
+
+      if (waitStatus === "success") {
+        toast.success("Success! 🎉 Your habit has been created.");
+
+        router.push("/my-habits");
+      }
     } catch (error) {
       toast.error("Failed to create habit. Please try again.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const buttonContent = () => {
+    if (writeIsPending) {
+      return (
+        <>
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          Send...
+        </>
+      );
+    }
+
+    if (waitIsLoading) {
+      return (
+        <>
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          Waiting for confirmation...
+        </>
+      );
+    }
+
+    if (waitStatus === "error") {
+      return (
+        <>
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          Transaction Rejected...
+        </>
+      );
+    }
+
+    if (waitStatus === "success") {
+      return "Transaction confirmed";
+    }
+
+    return "Create Habit";
   };
 
   return (
@@ -144,14 +230,7 @@ export default function CreateHabitPage() {
                 disabled={loading}
                 className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-3"
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating Habit...
-                  </>
-                ) : (
-                  "Create Habit"
-                )}
+                {buttonContent()}
               </Button>
 
               <p className="text-xs text-gray-500 text-center">

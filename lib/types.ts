@@ -18,6 +18,12 @@ export interface UserLog {
   imageUri?: string;
 }
 
+interface HabitLog {
+  id: number;
+  date: string;
+  log_info: string;
+}
+
 export const mockHabits: UserHabit[] = [
   {
     id: 1,
