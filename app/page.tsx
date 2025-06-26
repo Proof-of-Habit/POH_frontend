@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Flame, Trophy, Clock, ArrowRight } from "lucide-react";
+import { Flame, Trophy, Clock, ArrowRight, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { WalletConnectModal } from "@/components/wallet-connect-modal";
 import { useAccount } from "@starknet-react/core";
@@ -12,6 +12,8 @@ import { useContractFetch } from "@/hooks/useBlockchain";
 import { PROOFOFHABIT_ABI } from "./abis/proof_of_habit_abi";
 import { da } from "date-fns/locale";
 import { shortString } from "starknet";
+import { useUserHabits } from "@/hooks/useUserHabits";
+import { RefreshButton } from "@/components/refresh-button";
 
 // Helper: return an emoji that matches a habit title
 function getHabitEmoji(title: string) {
@@ -33,7 +35,6 @@ function getHabitEmoji(title: string) {
 export default function HomePage() {
   const { address } = useAccount();
   const router = useRouter();
-  const habits = mockHabits;
   const recentLogs = mockLogs;
   const [showWalletModal, setShowWalletModal] = useState(false);
   const { readData, dataRefetch, readIsLoading } = useContractFetch(
@@ -41,6 +42,11 @@ export default function HomePage() {
     "get_user_name",
     ["0x07af08dad44af4f7461979294f7eff8d3617c27c7c3e3f8222fd2a871517e719"]
   );
+  const {
+    habits,
+    isLoading: isLoadingHabits,
+    refetchContractHabits,
+  } = useUserHabits(address);
 
   useEffect(() => {
     if (!readData) return;
@@ -55,24 +61,11 @@ export default function HomePage() {
     .slice(0, 4)
     .map((habit) => ({
       habit: habit.title,
-      streak: habit.streak,
-      avatar: getHabitEmoji(habit.title),
+      streak: Number(habit.streak_count),
+      avatar: "🎯",
     }));
 
-  // Helper function to get emoji based on habit title
-  // const getHabitEmoji = (title: string) => {
-  //   const lower = title.toLowerCase()
-  //   if (lower.includes("workout") || lower.includes("exercise") || lower.includes("gym")) return "💪"
-  //   if (lower.includes("read") || lower.includes("book")) return "📚"
-  //   if (lower.includes("meditat") || lower.includes("mindful")) return "🧘‍♀️"
-  //   if (lower.includes("water") || lower.includes("drink")) return "💧"
-  //   if (lower.includes("sleep") || lower.includes("wake")) return "😴"
-  //   if (lower.includes("journal") || lower.includes("write")) return "✍️"
-  //   return "🎯"
-  // }
-
   const handleStartHabit = () => {
-    // dataRefetch();
     if (address) {
       router.push("/create");
     } else {
@@ -148,60 +141,24 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Your Recent Logs */}
-                  <Card className="bg-white/80 backdrop-blur-sm border-purple-100">
-                    <CardHeader>
-                      <CardTitle className="flex items-center space-x-2">
-                        <Clock className="w-5 h-5 text-purple-600" />
-                        <span>Your Recent Logs</span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {recentLogs.length === 0 ? (
-                        <div className="text-center py-8">
-                          <div className="text-4xl mb-4">📝</div>
-                          <p className="text-gray-600 mb-4">No logs yet!</p>
-                          <Button onClick={handleStartHabit} variant="outline">
-                            Create Your First Habit
-                          </Button>
-                        </div>
-                      ) : (
-                        recentLogs.slice(0, 3).map((log) => (
-                          <div
-                            key={log.id}
-                            className="flex items-start space-x-3 p-3 rounded-lg bg-purple-50/50"
-                          >
-                            <div className="text-2xl">
-                              {getHabitEmoji(log.habitTitle)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-800">
-                                {log.habitTitle}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                {log.message}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {new Date(log.date).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </CardContent>
-                  </Card>
-
+                <div className="grid grid-cols-1 gap-8">
                   {/* Your Best Streaks */}
-                  <Card className="bg-white/80 backdrop-blur-sm border-purple-100">
+                  <Card className="bg-white/80 backdrop-blur-sm border-purple-100 w-full lg:w-[60%] mx-auto">
                     <CardHeader>
-                      <CardTitle className="flex items-center space-x-2">
-                        <Trophy className="w-5 h-5 text-yellow-600" />
-                        <span>Your Best Streaks</span>
-                      </CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center space-x-2">
+                          <Trophy className="w-5 h-5 text-yellow-600" />
+                          <span>Your Best Streaks</span>
+                        </CardTitle>
+                        <RefreshButton onRefresh={refetchContractHabits} />
+                      </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {longestStreaks.length === 0 ? (
+                      {isLoadingHabits ? (
+                        <div className="flex justify-center h-full items-center">
+                          <Loader2 className="w-10 h-10 animate-spin text-purple-600" />
+                        </div>
+                      ) : habits.length === 0 ? (
                         <div className="text-center py-8">
                           <div className="text-4xl mb-4">🏆</div>
                           <p className="text-gray-600 mb-4">

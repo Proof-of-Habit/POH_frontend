@@ -12,14 +12,13 @@ import toast from "react-hot-toast";
 import { User, Loader2, CheckIcon, XIcon } from "lucide-react";
 import { useAccount } from "@starknet-react/core";
 import { PROOFOFHABIT_ABI } from "../abis/proof_of_habit_abi";
-import {
-  useContractFetch,
-  useContractWriteUtility,
-} from "@/hooks/useBlockchain";
-import { shortString } from "starknet";
+import { POH_CONTRACT_ADDRESS, useContractFetch } from "@/hooks/useBlockchain";
+import { CallData, shortString } from "starknet";
+import { myProvider } from "@/lib/utils";
+import ButtonContent from "@/components/button-content";
 
 export default function SetUsernamePage() {
-  const { address } = useAccount();
+  const { address, account } = useAccount();
   //   TODO: Fetch username form contract
   const {
     readData: usernameData,
@@ -31,18 +30,8 @@ export default function SetUsernamePage() {
   const [inputUsername, setInputUsername] = useState("");
   const [isChecking, setIsChecking] = useState(false);
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
-  const {
-    writeAsync: handleSetUserName,
-    writeIsPending,
-    waitIsLoading,
-    waitStatus,
-  } = useContractWriteUtility(
-    "set_user_name",
-    [shortString.encodeShortString(inputUsername)],
-    PROOFOFHABIT_ABI
-  );
 
-  if (!address || waitStatus === "success") {
+  if (!address) {
     router.push("/");
     return null;
   }
@@ -69,6 +58,7 @@ export default function SetUsernamePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!account) return;
 
     if (
       !inputUsername.trim() ||
@@ -82,11 +72,20 @@ export default function SetUsernamePage() {
     setLoading(true);
 
     try {
-      handleSetUserName();
+      const result = await account.execute({
+        contractAddress: POH_CONTRACT_ADDRESS,
+        entrypoint: "set_user_name",
+        calldata: CallData.compile({
+          name: inputUsername,
+        }),
+      });
 
-      if (waitStatus === "success") {
+      const status = await myProvider.waitForTransaction(
+        result.transaction_hash
+      );
+
+      if (status.isSuccess()) {
         toast.success("Success! 🎉 Your username has been set");
-
         router.push(`/profile/${inputUsername}`);
       }
     } catch (error) {
@@ -94,37 +93,6 @@ export default function SetUsernamePage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const buttonContent = () => {
-    if (writeIsPending) {
-      return (
-        <>
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          Send...
-        </>
-      );
-    }
-
-    if (waitIsLoading) {
-      return (
-        <>
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          Waiting for confirmation...
-        </>
-      );
-    }
-
-    if (waitStatus === "error") {
-      return (
-        <>
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          Transaction Rejected...
-        </>
-      );
-    }
-
-    return "Set Username";
   };
 
   return (
@@ -210,7 +178,11 @@ export default function SetUsernamePage() {
                 }
                 className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-3"
               >
-                {buttonContent()}
+                <ButtonContent
+                  loading={usernameIsLoading || loading}
+                  loadingString="Setting Username"
+                  defaultString="Set username"
+                />
               </Button>
 
               <p className="text-xs text-gray-500 text-center">

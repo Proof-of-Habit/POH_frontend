@@ -7,8 +7,8 @@ import {
 } from "@starknet-react/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Abi, Contract, RpcProvider } from "starknet";
-const POH_CONTRACT_ADDRESS =
-  "0x05881b8442776322c1501d50825f4b539795275a7aa20fb33acdd5f0f9dd00a9";
+export const POH_CONTRACT_ADDRESS =
+  "0x076b83bb4ce5733ffe43ac19db3b310cd887af1e26fd4e3f653f68f383e10d5c";
 
 // Utility function to perform contract read operations
 export function useContractFetch(
@@ -93,6 +93,60 @@ export function useContractWriteUtility(
     waitError,
     calls,
   };
+}
+
+export function useContractWriteUtilityWithArgs(
+  functionName: string,
+  abi: Abi
+) {
+  const { contract } = useContract({ abi, address: POH_CONTRACT_ADDRESS });
+
+  const writeWithArgs = async (args: any[]) => {
+    console.log(args, "calling contract with args");
+    let calls;
+
+    if (
+      !contract ||
+      !args ||
+      args.some(
+        (arg) => arg === undefined || arg === null || arg === "0x" || arg === ""
+      )
+    ) {
+      calls = undefined;
+    } else {
+      calls = [contract.populate(functionName, args)];
+    }
+    console.log(calls, "calls");
+
+    const {
+      send: writeAsync,
+      data: writeData,
+      isPending: writeIsPending,
+    } = useSendTransaction({ calls });
+
+    const {
+      isLoading: waitIsLoading,
+      data: waitData,
+      status: waitStatus,
+      isError: waitIsError,
+      error: waitError,
+    } = useTransactionReceipt({
+      hash: writeData?.transaction_hash,
+      watch: true,
+    });
+
+    return {
+      writeData,
+      writeIsPending,
+      waitIsLoading,
+      waitData,
+      waitStatus,
+      waitIsError,
+      waitError,
+    };
+  };
+
+  return { writeWithArgs };
 }
 
 // Utility function to get contract events

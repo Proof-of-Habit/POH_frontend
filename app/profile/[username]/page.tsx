@@ -10,6 +10,9 @@ import { Flame, Target, Calendar, ExternalLink } from "lucide-react";
 import { useContractFetch } from "@/hooks/useBlockchain";
 import { PROOFOFHABIT_ABI } from "@/app/abis/proof_of_habit_abi";
 import { useAccount } from "@starknet-react/core";
+import { shortenAddress } from "@/lib/utils";
+import { useUserHabits } from "@/hooks/useUserHabits";
+import { useUserStats } from "@/hooks/useUserStats";
 
 interface UserHabit {
   id: number;
@@ -32,40 +35,22 @@ interface UserProfile {
 export default function ProfilePage() {
   const { address } = useAccount();
   const params = useParams();
+  const { habits, isLoading: isLoadingHabits } = useUserHabits(address);
 
-  const router = useRouter();
+  const { totalHabits, totalUserLogs, userLongestStreak, isLoadingStats } =
+    useUserStats(address);
 
-  // 👇 Redirect if wallet is not connected
-  useEffect(() => {
-    if (!address) {
-      router.push("/");
-    }
-  }, [address, router]);
+  if (!address) {
+    return null;
+  }
 
-  const { readData: totalHabits, readIsLoading: isLoadingTotalHabits } =
-    useContractFetch(PROOFOFHABIT_ABI, "get_total_user_habits", [address]);
-
-  const { readData: totalUserLogs, readIsLoading: isLoadingTotalUserLogs } =
-    useContractFetch(PROOFOFHABIT_ABI, "get_total_logs_user", [address]);
-
-  const {
-    readData: userLongestStreak,
-    readIsLoading: isLoadingUserLongestStreak,
-  } = useContractFetch(PROOFOFHABIT_ABI, "get_user_longest_streak", [address]);
-
-  if (
-    isLoadingTotalHabits ||
-    isLoadingTotalUserLogs ||
-    isLoadingUserLongestStreak
-  ) {
+  if (isLoadingStats || isLoadingHabits) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
       </div>
     );
   }
-
-  // const publicHabits = profile.habits.filter((habit) => habit.isPublic);
 
   return (
     <div className="min-h-screen py-8 px-4">
@@ -81,7 +66,15 @@ export default function ProfilePage() {
                 <h1 className="text-2xl font-bold text-gray-800 mb-1">
                   @{params.username}
                 </h1>
-                <p className="text-gray-600 text-sm mb-2">{address}</p>
+                <p className="text-gray-600 text-sm mb-2">
+                  {address && shortenAddress(address)}
+                </p>
+                <div className="flex items-center space-x-1 text-sm text-gray-500">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    Joined {new Date("26/06/25").toLocaleDateString()}
+                  </span>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -118,7 +111,7 @@ export default function ProfilePage() {
           </Card>
         </div>
 
-        {/* Public Habits
+        {/* Public Habits */}
         <Card className="bg-white/80 backdrop-blur-sm border-purple-100">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -127,7 +120,7 @@ export default function ProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {publicHabits.length === 0 ? (
+            {habits.length === 0 ? (
               <div className="text-center py-8">
                 <div className="text-4xl mb-4">🔒</div>
                 <p className="text-gray-600">
@@ -136,7 +129,7 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {publicHabits.map((habit) => (
+                {habits.map((habit: any) => (
                   <div
                     key={habit.id}
                     className="p-4 rounded-lg bg-purple-50/50 border border-purple-100"
@@ -147,13 +140,13 @@ export default function ProfilePage() {
                       </h3>
                       <Badge variant="secondary">
                         <Flame className="w-3 h-3 mr-1" />
-                        {habit.streak}
+                        {Number(habit.streak_count)}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-1 text-sm text-gray-600">
                         <Target className="w-4 h-4" />
-                        <span>{habit.totalLogs} logs</span>
+                        <span>{Number(habit.total_log_count)} logs</span>
                       </div>
                       <Link href={`/habit/${habit.id}`}>
                         <Button
@@ -171,7 +164,7 @@ export default function ProfilePage() {
               </div>
             )}
           </CardContent>
-        </Card> */}
+        </Card>
       </div>
     </div>
   );

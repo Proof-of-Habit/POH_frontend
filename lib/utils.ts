@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
+import { RpcProvider } from "starknet";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
@@ -23,3 +24,28 @@ export function canLogTodayFromEpoch(
 
   return isDifferentDay;
 }
+
+export function shortenAddress(address: `0x${string}`, chars = 5): string {
+  if (!address || address.length < chars * 2 + 2) return address;
+  return `${address.slice(0, 4)}...${address.slice(-chars)}`;
+}
+
+export const getTimeUntilNextLog = (lastLogTime: string | null) => {
+  if (!lastLogTime) return null;
+  const lastLog = new Date(lastLogTime);
+  const nextLog = new Date(lastLog);
+  nextLog.setDate(nextLog.getDate() + 1);
+  const now = new Date();
+
+  if (now >= nextLog) return null;
+
+  const diff = nextLog.getTime() - now.getTime();
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+  return `${hours}h ${minutes}m`;
+};
+
+export const myProvider = new RpcProvider({
+  nodeUrl: process.env.NEXT_PUBLIC_RPC_URL,
+});

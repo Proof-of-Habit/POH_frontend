@@ -12,26 +12,19 @@ import { Label } from "@/components/ui/label";
 import toast from "react-hot-toast";
 import { Upload, Loader2, Target } from "lucide-react";
 import { useAccount } from "@starknet-react/core";
-import { BEARER_TOKEN } from "@/lib/utils";
-import { PROOFOFHABIT_ABI } from "../abis/proof_of_habit_abi";
-import { useContractWriteUtility } from "@/hooks/useBlockchain";
+import { BEARER_TOKEN, myProvider } from "@/lib/utils";
+import { POH_CONTRACT_ADDRESS } from "@/hooks/useBlockchain";
+import { CallData } from "starknet";
 
 export default function CreateHabitPage() {
-  const { address } = useAccount();
+  const { address, account } = useAccount();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [infoUri, setInfoUri] = useState("");
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     picture: null as File | null,
   });
-  const {
-    writeAsync: handleCreateHabit,
-    writeIsPending,
-    waitIsLoading,
-    waitStatus,
-  } = useContractWriteUtility("create_habit", [infoUri], PROOFOFHABIT_ABI);
 
   if (!address) {
     router.push("/");
@@ -47,6 +40,8 @@ export default function CreateHabitPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!account) return;
 
     if (!formData.title.trim()) {
       toast.error("Please enter a habit title.");
@@ -100,15 +95,23 @@ export default function CreateHabitPage() {
       );
 
       const metadata_upload_resData = await metadata_upload_res.json();
-      setInfoUri(metadata_upload_resData.IpfsHash);
 
       console.log(metadata_upload_resData, "finished uploading metadata");
 
-      handleCreateHabit();
+      const result = await account.execute({
+        contractAddress: POH_CONTRACT_ADDRESS,
+        entrypoint: "create_habit",
+        calldata: CallData.compile({
+          infoUid: metadata_upload_resData.IpfsHash,
+        }),
+      });
 
-      if (waitStatus === "success") {
+      const status = await myProvider.waitForTransaction(
+        result.transaction_hash
+      );
+
+      if (status.isSuccess()) {
         toast.success("Success! 🎉 Your habit has been created.");
-
         router.push("/my-habits");
       }
     } catch (error) {
@@ -119,35 +122,13 @@ export default function CreateHabitPage() {
   };
 
   const buttonContent = () => {
-    if (writeIsPending) {
+    if (loading) {
       return (
         <>
           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          Send...
+          Creating Habit...
         </>
       );
-    }
-
-    if (waitIsLoading) {
-      return (
-        <>
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          Waiting for confirmation...
-        </>
-      );
-    }
-
-    if (waitStatus === "error") {
-      return (
-        <>
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          Transaction Rejected...
-        </>
-      );
-    }
-
-    if (waitStatus === "success") {
-      return "Transaction confirmed";
     }
 
     return "Create Habit";

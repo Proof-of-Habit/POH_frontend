@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,10 +7,9 @@ import Link from "next/link";
 import { Plus, Flame, Calendar, Clock, Target } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "@starknet-react/core";
-import { PROOFOFHABIT_ABI } from "../abis/proof_of_habit_abi";
-import { fetchContentFromIPFS, useContractFetch } from "@/hooks/useBlockchain";
 import { RefreshButton } from "@/components/refresh-button";
-import { canLogTodayFromEpoch } from "@/lib/utils";
+import { canLogTodayFromEpoch, getTimeUntilNextLog } from "@/lib/utils";
+import { useUserHabits } from "@/hooks/useUserHabits";
 
 interface Habit {
   id: number;
@@ -26,73 +24,13 @@ interface Habit {
 
 export default function MyHabitsPage() {
   const { address } = useAccount();
-  const router = useRouter();
-  const [habits, setHabits] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const {
-    readData: contractHabits,
-    readIsLoading: isLoadingContractHabits,
-    dataRefetch: refetchContractHabits,
-    readRefetching: isRefetchContractHabits,
-  } = useContractFetch(PROOFOFHABIT_ABI, "get_user_habits", [address]);
-  useEffect(() => {
-    if (!address) {
-      router.push("/");
-      return;
-    }
-
-    async function fetchHabitsInfo() {
-      try {
-        setIsLoading(true);
-        if (!contractHabits || contractHabits.length === 0) return;
-        console.log(contractHabits, "contract habits");
-
-        const habitPromises = contractHabits.map((habit: any) =>
-          fetchContentFromIPFS(habit.info)
-        );
-        const habitInfo: any = await Promise.all(habitPromises);
-
-        const merged = contractHabits.map((habit: any, i: number) => ({
-          ...habitInfo[i],
-          streak_count: habit.streak_count,
-          total_log_count: habit.total_log_count,
-          id: Number(habit.id),
-          last_log_at: habit.last_log_at,
-        }));
-
-        console.log(merged);
-        setHabits(merged);
-      } catch (err) {
-        console.log(err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchHabitsInfo();
-  }, [address, router, contractHabits]);
-
-  const getTimeUntilNextLog = (lastLogTime: string | null) => {
-    if (!lastLogTime) return null;
-    const lastLog = new Date(lastLogTime);
-    const nextLog = new Date(lastLog);
-    nextLog.setDate(nextLog.getDate() + 1);
-    const now = new Date();
-
-    if (now >= nextLog) return null;
-
-    const diff = nextLog.getTime() - now.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-    return `${hours}h ${minutes}m`;
-  };
+  const { habits, isLoading, refetchContractHabits } = useUserHabits(address);
 
   if (!address) {
     return null;
   }
 
-  if (isLoadingContractHabits || isLoading || isRefetchContractHabits) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
